@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lucida/providers/state_provider.dart';
+import 'package:lucida/providers/theme_provider.dart';
+import 'package:lucida/themes.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +10,10 @@ import 'package:provider/provider.dart';
 void main() {
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (context) => StateProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (context) => StateProvider()),
+        ChangeNotifierProvider(create: (context) => ThemeProvider(lightTheme)),
+      ],
       child: const HomeScreen(),
     ),
   );
@@ -19,13 +24,14 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.red,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: SpeechScreen(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: themeProvider.getThemeData(),
+          home: SpeechScreen(),
+        );
+      },
     );
   }
 }
@@ -57,14 +63,29 @@ class _SpeechScreenState extends State<SpeechScreen> {
   void speak(String text) async {
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setPitch(1.0);
-    await _flutterTts.speak(text);
+    await _flutterTts.speak(readyAnswer);
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Confidence: ${(_confidence * 100.0).toStringAsFixed(1)}%'),
+        title: Text(
+          'Change theme',
+          style: TextStyle(color: Colors.black),
+        ),
+        //Text('Confidence: ${(_confidence * 100.0).toStringAsFixed(1)}%'),
+        actions: [
+          Container(
+            width: 200,
+            child: SwitchListTile(
+                value: themeProvider.getThemeData() == darkTheme,
+                onChanged: (value) {
+                  themeProvider.setThemeData(value ? darkTheme : lightTheme);
+                }),
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: AvatarGlow(
