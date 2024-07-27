@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:avatar_glow/avatar_glow.dart';
 
+import 'dart:developer' as devtools show log;
+
 void main() {
   runApp(
     MultiProvider(
@@ -29,7 +31,7 @@ class HomeScreen extends StatelessWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: themeProvider.getThemeData(),
-          home: SpeechScreen(),
+          home: const SpeechScreen(),
         );
       },
     );
@@ -37,6 +39,8 @@ class HomeScreen extends StatelessWidget {
 }
 
 class SpeechScreen extends StatefulWidget {
+  const SpeechScreen({super.key});
+
   @override
   _SpeechScreenState createState() => _SpeechScreenState();
 }
@@ -49,7 +53,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   Color micColor = Colors.blue;
   double _confidence = 1.0;
 
-  String _readyAnswer1 = 'My name is Luci. Nice to meet you';
+  final String _readyAnswer1 = 'My name is Luci. Nice to meet you';
   String readyAnswer2 = 'I am fine. How about you?';
 
   @override
@@ -109,7 +113,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Text(
               'Confidence: ${(_confidence * 100.0).toStringAsFixed(1)}%',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
               ),
             ),
@@ -119,7 +123,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 _text,
-                style: TextStyle(fontSize: 24),
+                style: const TextStyle(fontSize: 24),
               ),
             ),
           ),
@@ -137,12 +141,12 @@ class _SpeechScreenState extends State<SpeechScreen> {
   Future<void> _startListening() async {
     bool available = await _speech.initialize(
       onStatus: (val) {
-        print('On status: $val');
+        devtools.log('On status: $val');
         if (val == 'notListening') {
           _speak(_readyAnswer1);
         }
       },
-      onError: (val) => print('On error: $val'),
+      onError: (val) => devtools.log('On error: $val'),
     );
 
     if (available) {
@@ -151,12 +155,12 @@ class _SpeechScreenState extends State<SpeechScreen> {
         micColor = Colors.red;
       });
 
-      print('Listening started');
+      devtools.log('Listening started');
 
       _speech.listen(
         onResult: (val) {
-          print('Result received');
-          print('Recognized words: ${val.recognizedWords}');
+          devtools.log('Result received');
+          devtools.log('Recognized words: ${val.recognizedWords}');
           setState(() {
             _text = val.recognizedWords;
             if (val.hasConfidenceRating && val.confidence > 0) {
@@ -167,7 +171,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
         localeId: "en_US",
       );
     } else {
-      print('Speech not available');
+      devtools.log('Speech not available');
     }
   }
 
