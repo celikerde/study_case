@@ -7,14 +7,19 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:avatar_glow/avatar_glow.dart';
 
+//log functions are used instead of using print.
 import 'dart:developer' as devtools show log;
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => StateProvider()),
-        ChangeNotifierProvider(create: (context) => ThemeProvider(lightTheme)),
+        ChangeNotifierProvider(
+            create: (context) =>
+                StateProvider()), // first provider for changing states like listening, answering, and etc.
+        ChangeNotifierProvider(
+            create: (context) => ThemeProvider(
+                lightTheme)), //second provider for switchind between dark and light themes.
       ],
       child: const HomeScreen(),
     ),
@@ -46,16 +51,17 @@ class SpeechScreen extends StatefulWidget {
 }
 
 class _SpeechScreenState extends State<SpeechScreen> {
-  late stt.SpeechToText _speech;
-  late FlutterTts _flutterTts;
+  late stt.SpeechToText _speech; //from speech_to_text package.
+  late FlutterTts _flutterTts; //from flutter_tts package.
   String _text = '';
-  bool _isListening = false;
-  bool _isSpeaking = false;
+  bool _isListening = false; //At Initial state, mic is turn off.
   Color micColor = Colors.blue;
-  double _confidence = 1.0;
+  double _confidence =
+      1.0; // Confidence rate is calculating with speech_to_text.
 
+  //Ready Answers which will play answering states.
   final String _readyAnswer1 = 'My name is Luci. Nice to meet you';
-  String readyAnswer2 = 'I am fine. How about you?';
+  final String readyAnswer2 = 'I am fine. How about you?';
 
   @override
   void initState() {
@@ -67,7 +73,8 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
   Future<void> _initializeSpeechAndTts() async {
     await _speech.initialize();
-    await _flutterTts.setLanguage("en-US");
+    await _flutterTts
+        .setLanguage("en-US"); //Language is choose as American English.
   }
 
   @override
@@ -82,7 +89,9 @@ class _SpeechScreenState extends State<SpeechScreen> {
           SizedBox(
             width: 200,
             child: SwitchListTile(
-                value: themeProvider.getThemeData() == darkTheme,
+                //for changing themes.
+                value: themeProvider.getThemeData() ==
+                    darkTheme, //provider states check and assign operations.
                 onChanged: (value) {
                   themeProvider.setThemeData(value ? darkTheme : lightTheme);
                 }),
@@ -111,11 +120,13 @@ class _SpeechScreenState extends State<SpeechScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(96.0),
+            //States are changed with state provider.
             child: Center(child: Text(stateProvider.getState)),
           )
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      //Avatar Glow is used for microphone animation.
       floatingActionButton: AvatarGlow(
         animate: _isListening,
         glowColor: Theme.of(context).primaryColor,
@@ -125,22 +136,26 @@ class _SpeechScreenState extends State<SpeechScreen> {
           onPressed: () async {
             if (_isListening) {
               await _stopListening();
-              await _speaking(_readyAnswer1);
+              await _startSpeaking(_readyAnswer1);
+              //State changing
               if (stateProvider.getState != "Answering...") {
+                stateProvider.assignState("Answering...");
+                //If answering is completed, answering text will vanished.
                 _flutterTts.setCompletionHandler(() {
                   stateProvider.assignState("");
                 });
-                stateProvider.assignState("Answering...");
               }
             } else {
               await _stopSpeaking();
               await _startListening();
+              //State changing
               if (stateProvider.getState != "Listening...") {
                 stateProvider.assignState("Listening...");
               }
             }
           },
           child: Icon(
+            //Microphone color state
             color: micColor,
             _isListening ? Icons.mic : Icons.mic_none,
           ),
@@ -149,49 +164,37 @@ class _SpeechScreenState extends State<SpeechScreen> {
     );
   }
 
-  Future<void> _speaking(String text) async {
+  //Read ready answer
+  Future<void> _startSpeaking(String text) async {
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setPitch(1.0);
     await _flutterTts.speak(text);
-    _isSpeaking = true;
   }
 
+  //If press again microphone button before answering ready answer, speaking stopping and listening again.
   Future<void> _stopSpeaking() async {
     await _flutterTts.stop();
   }
 
+  //Say something microphone and write texts on main screen. State changes are checked.
   Future<void> _startListening() async {
-    bool available = await _speech.initialize(
-      onStatus: (val) {
-        devtools.log('On status: $val');
+    devtools.log('Listening started');
+    _speech.listen(
+      onResult: (val) {
+        setState(() {
+          _text = val.recognizedWords;
+          _isListening = true;
+          micColor = Colors.red;
+          if (val.hasConfidenceRating && val.confidence > 0) {
+            _confidence = val.confidence;
+          }
+        });
       },
-      onError: (val) => devtools.log('On error: $val'),
+      localeId: "en_US",
     );
-
-    if (available) {
-      setState(() {
-        _isListening = true;
-        micColor = Colors.red;
-      });
-
-      devtools.log('Listening started');
-
-      _speech.listen(
-        onResult: (val) {
-          setState(() {
-            _text = val.recognizedWords;
-            if (val.hasConfidenceRating && val.confidence > 0) {
-              _confidence = val.confidence;
-            }
-          });
-        },
-        localeId: "en_US",
-      );
-    } else {
-      devtools.log('Speech not available');
-    }
   }
 
+  //Microphone is turn off and after ready answer should be read.
   Future<void> _stopListening() async {
     setState(() {
       _isListening = false;
