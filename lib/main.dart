@@ -50,6 +50,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   late FlutterTts _flutterTts;
   String _text = '';
   bool _isListening = false;
+  bool _isSpeaking = false;
   Color micColor = Colors.blue;
   double _confidence = 1.0;
 
@@ -72,10 +73,11 @@ class _SpeechScreenState extends State<SpeechScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final stateProvider = Provider.of<StateProvider>(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lucida AI'),
-        centerTitle: true,
+        backgroundColor: Colors.amber,
         actions: [
           SizedBox(
             width: 200,
@@ -86,26 +88,6 @@ class _SpeechScreenState extends State<SpeechScreen> {
                 }),
           ),
         ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: AvatarGlow(
-        animate: _isListening,
-        glowColor: Theme.of(context).primaryColor,
-        duration: const Duration(milliseconds: 2000),
-        repeat: true,
-        child: FloatingActionButton(
-          onPressed: () async {
-            if (_isListening) {
-              await _stopListening();
-            } else {
-              await _startListening();
-            }
-          },
-          child: Icon(
-            color: micColor,
-            _isListening ? Icons.mic : Icons.mic_none,
-          ),
-        ),
       ),
       body: Column(
         children: <Widget>[
@@ -127,24 +109,61 @@ class _SpeechScreenState extends State<SpeechScreen> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.all(96.0),
+            child: Center(child: Text(stateProvider.getState)),
+          )
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: AvatarGlow(
+        animate: _isListening,
+        glowColor: Theme.of(context).primaryColor,
+        duration: const Duration(milliseconds: 2000),
+        repeat: true,
+        child: FloatingActionButton(
+          onPressed: () async {
+            if (_isListening) {
+              await _stopListening();
+              await _speaking(_readyAnswer1);
+              if (stateProvider.getState != "Answering...") {
+                _flutterTts.setCompletionHandler(() {
+                  stateProvider.assignState("");
+                });
+                stateProvider.assignState("Answering...");
+              }
+            } else {
+              await _stopSpeaking();
+              await _startListening();
+              if (stateProvider.getState != "Listening...") {
+                stateProvider.assignState("Listening...");
+              }
+            }
+          },
+          child: Icon(
+            color: micColor,
+            _isListening ? Icons.mic : Icons.mic_none,
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _speak(String text) async {
+  Future<void> _speaking(String text) async {
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setPitch(1.0);
     await _flutterTts.speak(text);
+    _isSpeaking = true;
+  }
+
+  Future<void> _stopSpeaking() async {
+    await _flutterTts.stop();
   }
 
   Future<void> _startListening() async {
     bool available = await _speech.initialize(
       onStatus: (val) {
         devtools.log('On status: $val');
-        if (val == 'notListening') {
-          _speak(_readyAnswer1);
-        }
       },
       onError: (val) => devtools.log('On error: $val'),
     );
@@ -159,8 +178,6 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
       _speech.listen(
         onResult: (val) {
-          devtools.log('Result received');
-          devtools.log('Recognized words: ${val.recognizedWords}');
           setState(() {
             _text = val.recognizedWords;
             if (val.hasConfidenceRating && val.confidence > 0) {
@@ -181,6 +198,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
       micColor = Colors.blue;
     });
     await _speech.stop();
-    _speak(_readyAnswer1); // Speak the answer after stopping listening
+    devtools
+        .log('Answering started'); // Speak the answer after stopping listening
   }
 }
